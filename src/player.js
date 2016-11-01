@@ -3,7 +3,7 @@
 /* Classes and Libraries */
 const Vector = require('./vector');
 const Missile = require('./missile');
-
+const Partices = require('./smoke_particles');
 /* Constants */
 const PLAYER_SPEED = 5;
 const BULLET_SPEED = 10;
@@ -21,13 +21,18 @@ module.exports = exports = Player;
  */
 function Player(bullets, missiles) {
   this.missiles = missiles;
+  this.particle = new Partices(100);
   this.missileCount = 4;
   this.bullets = bullets;
   this.angle = 0;
+  this.score = 0;
   this.position = {x: 200, y: 200};
   this.velocity = {x: 0, y: 0};
   this.img = new Image()
   this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.health = 10;
+  this.radius = 20;
+  this.alive = true;
 }
 
 /**
@@ -38,6 +43,17 @@ function Player(bullets, missiles) {
  * boolean properties: up, left, right, down
  */
 Player.prototype.update = function(elapsedTime, input) {
+  if(this.health <= 0){
+    this.particle.emit({x: -8, y: 0});
+    this.particle.emit({x: 8, y: -8});
+    this.particle.emit({x: 8, y: 8});
+    this.particle.emit({x: 0, y: 0});
+    this.particle.emit({x: -8, y: 8});
+    this.particle.emit({x: -8, y: -8});
+    this.particle.update(elapsedTime);
+    this.alive = false;
+    this.velocity = {x:0,y:0};
+  }
 
   // set the velocity
   this.velocity.x = 0;
@@ -59,7 +75,8 @@ Player.prototype.update = function(elapsedTime, input) {
   // don't let the player move off-screen
   if(this.position.x < 0) this.position.x = 0;
   if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(this.position.y > 2000) this.position.y = 2000;
+  if(this.position.y < 300) this.position.y = 300;
 }
 
 /**
@@ -68,11 +85,12 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-Player.prototype.render = function(elapasedTime, ctx) {
+Player.prototype.render = function(elapsedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  if(this.health <= 0) this.particle.render(elapsedTime, ctx);
+  else ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
   ctx.restore();
 }
 

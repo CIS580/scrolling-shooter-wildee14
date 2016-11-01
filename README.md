@@ -46,3 +46,5 @@ The bundle will automatically be re-created every time you change a source file.
 Game framework HTML5/CSS3/Javascript code was written by course instructor Nathan Bean, and released under the [CC-A-SA 3.0 License](https://creativecommons.org/licenses/by-sa/3.0/)
 
 Assets are remastered graphics from the game Tyrian released as public domain on [Lostgarden](http://www.lostgarden.com/2007/04/free-game-graphics-tyrian-ships-and.html)
+
+Plane graphics from released as public domain [Flatlander](opengameart.org/users/titi_son)
