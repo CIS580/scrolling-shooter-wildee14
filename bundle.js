@@ -36,13 +36,14 @@ var powerups = [];
 
 var enemies = [];
 for (var i = 0; i < 2*level; i++) {
-  enemies.push(new Enemy(level,bulletsEnemy[i],{x:i*200+200, y:700}));
+  enemies.push(new Enemy("plane",bulletsEnemy[i],{x:i*200+200, y:700}));
+  console.log(enemies[i].type);
 }
 var exploded = [];
 
 //1. load image
 var background = new Image();
-background.src = 'assets/Levels/Level1/map.png';
+background.src = 'assets/Levels/Level1/back.png';
 var middle = new Image();
 middle.src = 'assets/Levels/Level1/front.png';
 var front = new Image();
@@ -139,9 +140,6 @@ window.onkeyup = function(event) {
     case "ArrowRight":
     case "d":
       input.right = false;
-      for (var i = 0; i < enemies.length; i++) {
-        enemies[i].fireBullet(player.position);
-      }
       event.preventDefault();
       break;
   }
@@ -165,11 +163,8 @@ function nextLevel() {
   start = Date.now();
   player.score+=total*10;
   player.score+=level*100;
-  setTimeout(function(){     document.getElementById('score').innerHTML =
-                            "Level Summary:"+level+" Score: "+
-                            player.score+" Health: "+player.health+
-                            "</br>Time: "+total + " seconds";}, 3000);
-  console.log(Math.floor((end-start)*.001) + " seconds");
+  document.getElementById('score').innerHTML = "Level Summary:"+level+" Score: "+
+    player.score+" Health: "+player.health+ "</br>Time: "+total + " seconds";
 
   level++;
   player.position.y = 100;
@@ -177,13 +172,33 @@ function nextLevel() {
   enemies = [];
   exploded = [];
   var bulletsEnemy =  [];
-  for (var i = 0; i < 3*level; i++) {
-    bulletsEnemy.push(new BulletPool(10));
+  if(level == 2){
+    for (var i = 0; i < 3*level; i++) {
+      bulletsEnemy.push(new BulletPool(10));
+    }
+
+    for (var i = 0; i < 2*level; i++) {
+      enemies.push(new Enemy("robot",bulletsEnemy[i],{x:i*100+50, y:700}));
+    }
+    var len = enemies.length;
+    for (var i = 0; i < level; i++) {
+      enemies.push(new Enemy("bigRobot",bulletsEnemy[i+len],{x:i*400+50, y:1000}));
+    }
+  }
+  else if(level == 3){
+    for (var i = 0; i < 3*level; i++) {
+      bulletsEnemy.push(new BulletPool(10));
+    }
+
+    for (var i = 0; i < 2*level; i++) {
+      enemies.push(new Enemy("alien",bulletsEnemy[i],{x:i*100+50, y:700}));
+    }
+    var len = enemies.length;
+    for (var i = 0; i < level; i++) {
+      enemies.push(new Enemy("bigPlane",bulletsEnemy[i+len],{x:i*400+50, y:1000}));
+    }
   }
 
-  for (var i = 0; i < 2*level; i++) {
-    enemies.push(new Enemy(level,bulletsEnemy[i],{x:i*100+50, y:700}));
-  }
 }
 
 
@@ -217,6 +232,7 @@ function update(elapsedTime) {
       return false;
     });
   }
+  //console.log(bulletsEnemy.length);
 
   // Update missiles
   var markedForRemoval = [];
@@ -232,8 +248,8 @@ function update(elapsedTime) {
 
   //Update enemies
   for (var i = 0; i < enemies.length; i++) {
-    enemies[i].update();
-  }
+    enemies[i].update(camera,player);
+    }
 
   var collisions = [];
   //Check for Enemy 2 Player collision
@@ -372,6 +388,10 @@ function renderWorld(elapsedTime, ctx) {
     // Render the bullets
     bullets.render(elapsedTime, ctx);
 
+    for (var i = 0; i < bulletsEnemy.length; i++) {
+      bulletsEnemy[i].render(elapsedTime, ctx);
+    }
+
     // Render the missiles
     missiles.forEach(function(missile) {
       missile.render(elapsedTime, ctx);
@@ -389,7 +409,11 @@ function renderWorld(elapsedTime, ctx) {
     ctx.fillStyle=gradient;
     ctx.fillText("HP:"+player.health,player.position.x-23,player.position.y+35);
     ctx.fillText("Score:"+player.score,player.position.x-23,player.position.y+55);
-
+    if( (Math.floor((start)*.001))<5 && level > 1){
+      ctx.fillText("Level Summary:"+level+" Score: "+
+        player.score+" Health: "+player.health+ "Time: "+total + " seconds",
+        player.position.x-23,player.position.y+85);
+    }
     //Render enemies
     for (var i = 0; i < enemies.length; i++) {
       enemies[i].render(elapsedTime, ctx);
@@ -517,7 +541,7 @@ BulletPool.prototype.render = function(elapsedTime, ctx) {
   // Render the bullets as a single path
   ctx.save();
   ctx.beginPath();
-  ctx.fillStyle = "white";
+  ctx.fillStyle = "black";
   for(var i = 0; i < this.end; i++) {
     ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
     ctx.arc(this.pool[4*i], this.pool[4*i+1], 15, 0, 2*Math.PI);
@@ -617,12 +641,13 @@ module.exports = exports = Enemy;
  * Creates a Enemy
  * @param {BulletPool} bullets the bullet pool
  */
-function Enemy(level,bullets,position) {
+function Enemy(type,bullets,position) {
   this.bullets = bullets;
-  this.level = level;
+  this.type = type;
   this.angle = 0;
   this.start = {x: position.x, y: position.y}
   this.left = true;
+  this.up = true;
   this.particles = new Particles(100);
   this.position = position;
   this.velocity = {x: 0, y: 0};
@@ -638,7 +663,7 @@ function Enemy(level,bullets,position) {
   this.bigRobot.src = 'assets/newsho.shp.000000.png';
 
   this.radius = 40;
-  this.type = ["plane", "bigPlane", "alien", "robot", "hugeRobot"];
+  this.types = ["plane", "bigPlane", "alien", "robot", "hugeRobot"];
 }
 
 /**
@@ -648,13 +673,42 @@ function Enemy(level,bullets,position) {
  * @param {Input} input object defining input, must have
  * boolean properties: up, left, right, down
  */
-Enemy.prototype.update = function() {
+Enemy.prototype.update = function(camera, player) {
 
-  if(60 < (this.start.x - this.position.x ) ) this.left = false;
-  else if(60 < (this.position.x - this.start.x) ) this.left = true;
+  switch (this.type) {
+    case "plane":
+      if(60 < (this.start.x - this.position.x ) ) this.left = false;
+      else if(60 < (this.position.x - this.start.x) ) this.left = true;
 
-  if(this.left) this.position.x--;
-  else this.position.x++;
+      if(this.left) this.position.x--;
+      else this.position.x++;
+      break;
+    case "bigPlane":
+      if(60 < (this.start.y - this.position.y ) ) this.up = false;
+      else if(60 < (this.position.y - this.start.y) ) this.up = true;
+      if(this.up) this.position.y--;
+      else this.position.y++;
+      break;
+      break;
+    case "alien":
+      if(60 < (this.start.x - this.position.x ) ) this.left = false;
+      else if(60 < (this.position.x - this.start.x) ) this.left = true;
+      if(this.left) this.position.x--;
+      else this.position.x++;
+      break;
+      break;
+    case "robot":
+      console.log("FIRE");
+      this.fireBullet(Vector.subtract(player.position,
+                  camera.toScreenCoordinates(this.position)));
+      break;
+    case "bigRobot":
+      if(60 < (this.start.y - this.position.y ) ) this.up = false;
+      else if(60 < (this.position.y - this.start.y) ) this.up = true;
+      if(this.up) this.position.y--;
+      else this.position.y++;
+      break;
+   }
 
 }
 
@@ -668,7 +722,23 @@ Enemy.prototype.render = function(elapasedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.plane, 15,15);
+  switch (this.type) {
+    case "plane":
+      ctx.drawImage(this.plane, 15,15);
+      break;
+    case "bigPlane":
+      ctx.drawImage(this.bigPlane, 15,15, 100,100);
+      break;
+    case "alien":
+      ctx.drawImage(this.alien,0,0,228,50, 15,15, 100,50);
+      break;
+    case "robot":
+      ctx.drawImage(this.robot, 0,0,228,50, 15,15, 100,50);
+      break;
+    case "bigRobot":
+      ctx.drawImage(this.bigRobot,0,0,228,150, 15,15, 100,80);
+      break;
+  }
   ctx.restore();
 }
 

@@ -19,12 +19,13 @@ module.exports = exports = Enemy;
  * Creates a Enemy
  * @param {BulletPool} bullets the bullet pool
  */
-function Enemy(level,bullets,position) {
+function Enemy(type,bullets,position) {
   this.bullets = bullets;
-  this.level = level;
+  this.type = type;
   this.angle = 0;
   this.start = {x: position.x, y: position.y}
   this.left = true;
+  this.up = true;
   this.particles = new Particles(100);
   this.position = position;
   this.velocity = {x: 0, y: 0};
@@ -40,7 +41,7 @@ function Enemy(level,bullets,position) {
   this.bigRobot.src = 'assets/newsho.shp.000000.png';
 
   this.radius = 40;
-  this.type = ["plane", "bigPlane", "alien", "robot", "hugeRobot"];
+  this.types = ["plane", "bigPlane", "alien", "robot", "hugeRobot"];
 }
 
 /**
@@ -50,13 +51,42 @@ function Enemy(level,bullets,position) {
  * @param {Input} input object defining input, must have
  * boolean properties: up, left, right, down
  */
-Enemy.prototype.update = function() {
+Enemy.prototype.update = function(camera, player) {
 
-  if(60 < (this.start.x - this.position.x ) ) this.left = false;
-  else if(60 < (this.position.x - this.start.x) ) this.left = true;
+  switch (this.type) {
+    case "plane":
+      if(60 < (this.start.x - this.position.x ) ) this.left = false;
+      else if(60 < (this.position.x - this.start.x) ) this.left = true;
 
-  if(this.left) this.position.x--;
-  else this.position.x++;
+      if(this.left) this.position.x--;
+      else this.position.x++;
+      break;
+    case "bigPlane":
+      if(60 < (this.start.y - this.position.y ) ) this.up = false;
+      else if(60 < (this.position.y - this.start.y) ) this.up = true;
+      if(this.up) this.position.y--;
+      else this.position.y++;
+      break;
+      break;
+    case "alien":
+      if(60 < (this.start.x - this.position.x ) ) this.left = false;
+      else if(60 < (this.position.x - this.start.x) ) this.left = true;
+      if(this.left) this.position.x--;
+      else this.position.x++;
+      break;
+      break;
+    case "robot":
+      console.log("FIRE");
+      this.fireBullet(Vector.subtract(player.position,
+                  camera.toScreenCoordinates(this.position)));
+      break;
+    case "bigRobot":
+      if(60 < (this.start.y - this.position.y ) ) this.up = false;
+      else if(60 < (this.position.y - this.start.y) ) this.up = true;
+      if(this.up) this.position.y--;
+      else this.position.y++;
+      break;
+   }
 
 }
 
@@ -70,7 +100,23 @@ Enemy.prototype.render = function(elapasedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
   ctx.translate(this.position.x, this.position.y);
-  ctx.drawImage(this.plane, 15,15);
+  switch (this.type) {
+    case "plane":
+      ctx.drawImage(this.plane, 15,15);
+      break;
+    case "bigPlane":
+      ctx.drawImage(this.bigPlane, 15,15, 100,100);
+      break;
+    case "alien":
+      ctx.drawImage(this.alien,0,0,228,50, 15,15, 100,50);
+      break;
+    case "robot":
+      ctx.drawImage(this.robot, 0,0,228,50, 15,15, 100,50);
+      break;
+    case "bigRobot":
+      ctx.drawImage(this.bigRobot,0,0,228,150, 15,15, 100,80);
+      break;
+  }
   ctx.restore();
 }
 
