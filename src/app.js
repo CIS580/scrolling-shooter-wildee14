@@ -8,6 +8,8 @@ const Player = require('./player');
 const Enemy = require('./enemy');
 const BulletPool = require('./bullet_pool');
 const Particles = require('./smoke_particles');
+const Powerup = require('./powerup');
+
 /* Global variables */
 //transparent pixel RGB: 191 220 191
 var canvas = document.getElementById('screen');
@@ -39,6 +41,11 @@ for (var i = 0; i < 2*level; i++) {
   console.log(enemies[i].type);
 }
 var exploded = [];
+var explodedPowerups = [];
+var powerups = [];
+powerups.push(new Powerup("speed",{x:100,y:500}));
+powerups.push(new Powerup("size",{x:500,y:750}));
+powerups.push(new Powerup("color",{x:50,y:1000}));
 
 //1. load image
 var background = new Image();
@@ -157,6 +164,7 @@ var masterLoop = function(timestamp) {
 masterLoop(performance.now());
 
 function nextLevel() {
+  if (level < 4) {
   end = Date.now();
   var total = Math.floor((end-start)*.001);
   start = Date.now();
@@ -197,7 +205,12 @@ function nextLevel() {
       enemies.push(new Enemy("bigPlane",bulletsEnemy[i+len],{x:i*400+50, y:1000}));
     }
   }
-
+  powerups = [];
+  powerups.push(new Powerup("speed",{x:100,y:500}));
+  powerups.push(new Powerup("size",{x:200,y:750}));
+  powerups.push(new Powerup("color",{x:400,y:1000}));
+  explodedPowerups = [];
+  }
 }
 
 
@@ -210,10 +223,10 @@ function nextLevel() {
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
-
+  if(level >3) return;
   // update the player
   player.update(elapsedTime, input);
-  if(player.position.y>=2000) nextLevel();
+  if(player.position.y>=1200) nextLevel();
 
   // update the camera
   camera.update(player.position);
@@ -319,8 +332,55 @@ function update(elapsedTime) {
      }
    }
  }
+ for (var i = 0; i < powerups.length; i++) {
+   powerups[i].update(camera,player);
+ }
+ for (var i = 0; i < explodedPowerups.length; i++) {
+   explodedPowerups[i].update(camera,player);
+ }
+   var collisionsPowerups = [];
+   //Check for Powerup 2 Player collision
 
-
+   for (var i = 0; i < powerups.length; i++) {
+   var dist = Math.pow(powerups[i].position.x - player.position.x, 2) +
+              Math.pow(powerups[i].position.y - player.position.y, 2);
+ //  console.log(dist + ":"+ Math.pow(enemies[i].radius + player.radius, 2));
+   if(dist < Math.pow(powerups[i].radius + player.radius, 2)) {
+      collisionsPowerups.push(powerups[i]);
+    }
+  }
+  //console.log(collisions);
+  if(collisionsPowerups.length != 0){
+    for (var i = 0; i < collisionsPowerups.length; i++) {
+      for (var j = 0; j < powerups.length; j++) {
+        if(powerups[j].position.x == collisionsPowerups[i].position.x &&
+           powerups[j].position.y == collisionsPowerups[i].position.y){
+           console.log(player.PLAYER_SPEED);
+           switch (powerups[j].type) {
+             case "speed":
+               player.PLAYER_SPEED+=5;
+               break;
+             case "size":
+               player.BULLET_SPEED+=5;
+               break;
+             case "color":
+               player.health+=5;
+               break;
+           }
+           console.log(powerups[j]);
+           var explodedPowerup = powerups[j];
+           explodedPowerup.collided = true;
+           explodedPowerup.particles.emit({x: 0, y: 0});
+           explodedPowerup.particles.emit({x: -8, y: 8});
+           explodedPowerup.particles.emit({x: -8, y: -8});
+           explodedPowerup.particles.update(elapsedTime);
+           explodedPowerups.push(explodedPowerup);
+           console.log(player.BULLET_SPEED);
+           powerups.splice(j,1);
+      }
+    }
+  }
+ }
 }
 
 /**
@@ -333,7 +393,7 @@ function update(elapsedTime) {
 function render(elapsedTime, ctx) {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, 1024, 786);
-
+  if(level >3) return;
   // TODO: Render background
   renderBackgrounds(elapsedTime, ctx);
 
@@ -425,6 +485,18 @@ function renderWorld(elapsedTime, ctx) {
         exploded[i].particles.render(elapsedTime, ctx);
         ctx.restore();
       }
+    }
+    if(explodedPowerups){
+      for (var i = 0; i < explodedPowerups.length; i++) {
+        var offset = explodedPowerups[i].angle * 23;
+        ctx.save();
+        ctx.translate(explodedPowerups[i].position.x, explodedPowerups[i].position.y);
+        explodedPowerups[i].particles.render(elapsedTime, ctx);
+        ctx.restore();
+      }
+    }
+    for (var i = 0; i < powerups.length; i++) {
+      powerups[i].render(elapsedTime, ctx);
     }
 
 }

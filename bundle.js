@@ -9,6 +9,8 @@ const Player = require('./player');
 const Enemy = require('./enemy');
 const BulletPool = require('./bullet_pool');
 const Particles = require('./smoke_particles');
+const Powerup = require('./powerup');
+
 /* Global variables */
 //transparent pixel RGB: 191 220 191
 var canvas = document.getElementById('screen');
@@ -40,6 +42,11 @@ for (var i = 0; i < 2*level; i++) {
   console.log(enemies[i].type);
 }
 var exploded = [];
+var explodedPowerups = [];
+var powerups = [];
+powerups.push(new Powerup("speed",{x:100,y:500}));
+powerups.push(new Powerup("size",{x:500,y:750}));
+powerups.push(new Powerup("color",{x:50,y:1000}));
 
 //1. load image
 var background = new Image();
@@ -158,6 +165,7 @@ var masterLoop = function(timestamp) {
 masterLoop(performance.now());
 
 function nextLevel() {
+  if (level < 4) {
   end = Date.now();
   var total = Math.floor((end-start)*.001);
   start = Date.now();
@@ -198,7 +206,12 @@ function nextLevel() {
       enemies.push(new Enemy("bigPlane",bulletsEnemy[i+len],{x:i*400+50, y:1000}));
     }
   }
-
+  powerups = [];
+  powerups.push(new Powerup("speed",{x:100,y:500}));
+  powerups.push(new Powerup("size",{x:200,y:750}));
+  powerups.push(new Powerup("color",{x:400,y:1000}));
+  explodedPowerups = [];
+  }
 }
 
 
@@ -211,10 +224,10 @@ function nextLevel() {
  * the number of milliseconds passed since the last frame.
  */
 function update(elapsedTime) {
-
+  if(level >3) return;
   // update the player
   player.update(elapsedTime, input);
-  if(player.position.y>=2000) nextLevel();
+  if(player.position.y>=1200) nextLevel();
 
   // update the camera
   camera.update(player.position);
@@ -320,8 +333,55 @@ function update(elapsedTime) {
      }
    }
  }
+ for (var i = 0; i < powerups.length; i++) {
+   powerups[i].update(camera,player);
+ }
+ for (var i = 0; i < explodedPowerups.length; i++) {
+   explodedPowerups[i].update(camera,player);
+ }
+   var collisionsPowerups = [];
+   //Check for Powerup 2 Player collision
 
-
+   for (var i = 0; i < powerups.length; i++) {
+   var dist = Math.pow(powerups[i].position.x - player.position.x, 2) +
+              Math.pow(powerups[i].position.y - player.position.y, 2);
+ //  console.log(dist + ":"+ Math.pow(enemies[i].radius + player.radius, 2));
+   if(dist < Math.pow(powerups[i].radius + player.radius, 2)) {
+      collisionsPowerups.push(powerups[i]);
+    }
+  }
+  //console.log(collisions);
+  if(collisionsPowerups.length != 0){
+    for (var i = 0; i < collisionsPowerups.length; i++) {
+      for (var j = 0; j < powerups.length; j++) {
+        if(powerups[j].position.x == collisionsPowerups[i].position.x &&
+           powerups[j].position.y == collisionsPowerups[i].position.y){
+           console.log(player.PLAYER_SPEED);
+           switch (powerups[j].type) {
+             case "speed":
+               player.PLAYER_SPEED+=5;
+               break;
+             case "size":
+               player.BULLET_SPEED+=5;
+               break;
+             case "color":
+               player.health+=5;
+               break;
+           }
+           console.log(powerups[j]);
+           var explodedPowerup = powerups[j];
+           explodedPowerup.collided = true;
+           explodedPowerup.particles.emit({x: 0, y: 0});
+           explodedPowerup.particles.emit({x: -8, y: 8});
+           explodedPowerup.particles.emit({x: -8, y: -8});
+           explodedPowerup.particles.update(elapsedTime);
+           explodedPowerups.push(explodedPowerup);
+           console.log(player.BULLET_SPEED);
+           powerups.splice(j,1);
+      }
+    }
+  }
+ }
 }
 
 /**
@@ -334,7 +394,7 @@ function update(elapsedTime) {
 function render(elapsedTime, ctx) {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, 1024, 786);
-
+  if(level >3) return;
   // TODO: Render background
   renderBackgrounds(elapsedTime, ctx);
 
@@ -427,6 +487,18 @@ function renderWorld(elapsedTime, ctx) {
         ctx.restore();
       }
     }
+    if(explodedPowerups){
+      for (var i = 0; i < explodedPowerups.length; i++) {
+        var offset = explodedPowerups[i].angle * 23;
+        ctx.save();
+        ctx.translate(explodedPowerups[i].position.x, explodedPowerups[i].position.y);
+        explodedPowerups[i].particles.render(elapsedTime, ctx);
+        ctx.restore();
+      }
+    }
+    for (var i = 0; i < powerups.length; i++) {
+      powerups[i].render(elapsedTime, ctx);
+    }
 
 }
 
@@ -451,7 +523,7 @@ function renderGUI(elapsedTime, ctx) {
   ctx.restore();
 }
 
-},{"./bullet_pool":2,"./camera":3,"./enemy":4,"./game":5,"./player":7,"./smoke_particles":8,"./vector":9}],2:[function(require,module,exports){
+},{"./bullet_pool":2,"./camera":3,"./enemy":4,"./game":5,"./player":7,"./powerup":8,"./smoke_particles":9,"./vector":10}],2:[function(require,module,exports){
 "use strict";
 
 /**
@@ -619,7 +691,7 @@ Camera.prototype.toWorldCoordinates = function(screenCoordinates) {
   return Vector.add(screenCoordinates, this);
 }
 
-},{"./vector":9}],4:[function(require,module,exports){
+},{"./vector":10}],4:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
@@ -753,7 +825,7 @@ Enemy.prototype.fireBullet = function(direction) {
   this.bullets.add(position, velocity);
 }
 
-},{"./missile":6,"./smoke_particles":8,"./vector":9}],5:[function(require,module,exports){
+},{"./missile":6,"./smoke_particles":9,"./vector":10}],5:[function(require,module,exports){
 "use strict";
 
 /**
@@ -878,7 +950,7 @@ Missile.prototype.render = function(elapsedTime, ctx) {
   ctx.restore();
 }
 
-},{"./vector":9}],7:[function(require,module,exports){
+},{"./vector":10}],7:[function(require,module,exports){
 "use strict";
 
 /* Classes and Libraries */
@@ -886,8 +958,7 @@ const Vector = require('./vector');
 const Missile = require('./missile');
 const Partices = require('./smoke_particles');
 /* Constants */
-const PLAYER_SPEED = 5;
-const BULLET_SPEED = 10;
+
 
 /**
  * @module Player
@@ -901,6 +972,8 @@ module.exports = exports = Player;
  * @param {BulletPool} bullets the bullet pool
  */
 function Player(bullets, missiles) {
+  this.PLAYER_SPEED = 5;
+  this.BULLET_SPEED = 10;
   this.missiles = missiles;
   this.particle = new Partices(100);
   this.missileCount = 4;
@@ -938,11 +1011,11 @@ Player.prototype.update = function(elapsedTime, input) {
 
   // set the velocity
   this.velocity.x = 0;
-  if(input.left) this.velocity.x -= PLAYER_SPEED;
-  if(input.right) this.velocity.x += PLAYER_SPEED;
+  if(input.left) this.velocity.x -= this.PLAYER_SPEED;
+  if(input.right) this.velocity.x += this.PLAYER_SPEED;
   this.velocity.y = 0;
-  if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
-  if(input.down) this.velocity.y += PLAYER_SPEED / 2;
+  if(input.up) this.velocity.y -= this.PLAYER_SPEED / 2;
+  if(input.down) this.velocity.y += this.PLAYER_SPEED / 2;
 
   // determine player angle
   this.angle = 0;
@@ -982,7 +1055,7 @@ Player.prototype.render = function(elapsedTime, ctx) {
  */
 Player.prototype.fireBullet = function(direction) {
   var position = Vector.add(this.position, {x:30, y:30});
-  var velocity = Vector.scale(Vector.normalize(direction), BULLET_SPEED);
+  var velocity = Vector.scale(Vector.normalize(direction), this.PLAYER_SPEED);
   this.bullets.add(position, velocity);
 }
 
@@ -1000,7 +1073,99 @@ Player.prototype.fireMissile = function() {
   }
 }
 
-},{"./missile":6,"./smoke_particles":8,"./vector":9}],8:[function(require,module,exports){
+},{"./missile":6,"./smoke_particles":9,"./vector":10}],8:[function(require,module,exports){
+"use strict";
+
+/* Classes and Libraries */
+const Vector = require('./vector');
+const Particles = require('./smoke_particles');
+/* Constants */
+const Powerup_SPEED = 3;
+
+/**
+ * @module Powerup
+ * A class representing a Powerup's helicopter
+ */
+module.exports = exports = Powerup;
+
+/**
+ * @constructor Powerup
+ * Creates a Powerup
+ * @param {type} type the type
+ */
+function Powerup(type,position) {
+  this.type = type;
+  this.collided = false;
+  this.particles = new Particles(100);
+  this.angle = 0;
+  this.start = {x: position.x, y: position.y}
+  this.left = true;
+  this.up = true;
+  this.position = position;
+  this.velocity = {x: 0, y: 0};
+  this.power = new Image();
+  this.power.src = 'assets/newsh@.shp.000000.png';
+  this.radius = 40;
+}
+
+/**
+ * @function update
+ * Updates the Powerup based on the supplied input
+ * @param {DOMHighResTimeStamp} elapedTime
+ * @param {Input} input object defining input, must have
+ * boolean properties: up, left, right, down
+ */
+Powerup.prototype.update = function(camera, player) {
+ if(this.collided) return;
+  switch (this.type) {
+    case "speed":
+      if(60 < (this.start.x - this.position.x ) ) this.left = false;
+      else if(60 < (this.position.x - this.start.x) ) this.left = true;
+
+      if(this.left) this.position.x--;
+      else this.position.x++;
+      break;
+    case "size":
+      if(60 < (this.start.y - this.position.y ) ) this.up = false;
+      else if(60 < (this.position.y - this.start.y) ) this.up = true;
+      if(this.up) this.position.y--;
+      else this.position.y++;
+      break;
+      break;
+    case "color":
+      break;
+   }
+
+}
+
+/**
+ * @function render
+ * Renders the Powerup helicopter in world coordinates
+ * @param {DOMHighResTimeStamp} elapsedTime
+ * @param {CanvasRenderingContext2D} ctx
+ */
+Powerup.prototype.render = function(elapasedTime, ctx) {
+  var offset = this.angle * 23;
+  ctx.save();
+  ctx.translate(this.position.x, this.position.y);
+  if(!this.collided){
+    switch (this.type) {
+    case "speed":
+      ctx.drawImage(this.power,0,0,25,25, 15,15, 25,25);
+      break;
+    case "size":
+      ctx.drawImage(this.power,0,25,25,25, 15,15, 25,25);
+      break;
+    case "color":
+      ctx.drawImage(this.power,25,50,25,25, 15,15, 25,25);
+      break;
+  }
+} else this.particle.render(elapsedTime, ctx);
+
+  ctx.restore();
+}
+
+},{"./smoke_particles":9,"./vector":10}],9:[function(require,module,exports){
 "use strict";
 
 /**
@@ -1106,7 +1271,7 @@ SmokeParticles.prototype.render = function(elapsedTime, ctx) {
   }
 }
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 "use strict";
 
 /**
